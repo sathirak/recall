@@ -1,0 +1,18 @@
+[package]
+name = "stoa"
+version = "0.1.0"
+edition = "2024"
+description = "A powerful cross-platform CLI application"
+authors = ["sathirak"]
+license = "MIT"
+repository = "https://github.com/sathirak/stoa"
+homepage = "https://github.com/sathirak/stoa"
+readme = "README.md"
+keywords = ["cli", "tool", "cross-platform"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "stoa"
+path = "src/main.rs"
+
+[dependencies]
