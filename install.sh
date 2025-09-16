@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Agito Installation Script
-# This script builds and installs the Agito command logger for Linux systems
+# recall Installation Script
+# This script builds and installs the recall command logger for Linux systems
 
 set -e
 
@@ -42,12 +42,12 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
-print_status "Starting Agito installation..."
+print_status "Starting recall installation..."
 
 # Build the project
-print_status "Building Agito..."
+print_status "Building recall..."
 if ! cargo build --release; then
-    print_error "Failed to build Agito"
+    print_error "Failed to build recall"
     exit 1
 fi
 
@@ -59,12 +59,12 @@ mkdir -p "$INSTALL_DIR"
 
 # Copy binary to installation directory
 print_status "Installing binary to $INSTALL_DIR..."
-cp target/release/agito "$INSTALL_DIR/"
+cp target/release/recall "$INSTALL_DIR/"
 
 # Make sure the binary is executable
-chmod +x "$INSTALL_DIR/agito"
+chmod +x "$INSTALL_DIR/recall"
 
-print_success "Binary installed to $INSTALL_DIR/agito"
+print_success "Binary installed to $INSTALL_DIR/recall"
 
 # Check if ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
@@ -108,7 +108,7 @@ read -p "Would you like to install shell integration for automatic command loggi
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     print_status "Installing shell integration for $CURRENT_SHELL..."
-    if "$INSTALL_DIR/agito" install --shell "$CURRENT_SHELL"; then
+    if "$INSTALL_DIR/recall" install --shell "$CURRENT_SHELL"; then
         print_success "Shell integration installed successfully"
         print_warning "Please restart your terminal or source your shell configuration file"
     else
@@ -116,7 +116,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 else
     print_status "Skipping shell integration. You can install it later with:"
-    echo "agito install --shell $CURRENT_SHELL"
+    echo "recall install --shell $CURRENT_SHELL"
 fi
 
 # Create systemd user service (optional)
@@ -126,14 +126,14 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     SYSTEMD_DIR="$HOME/.config/systemd/user"
     mkdir -p "$SYSTEMD_DIR"
     
-    cat > "$SYSTEMD_DIR/agito.service" << EOF
+    cat > "$SYSTEMD_DIR/recall.service" << EOF
 [Unit]
-Description=Agito Command Logger
+Description=recall Command Logger
 After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=$INSTALL_DIR/agito
+ExecStart=$INSTALL_DIR/recall
 Restart=always
 RestartSec=5
 
@@ -142,17 +142,17 @@ WantedBy=default.target
 EOF
 
     systemctl --user daemon-reload
-    systemctl --user enable agito.service
+    systemctl --user enable recall.service
     print_success "Systemd user service created and enabled"
 fi
 
-print_success "Agito installation completed!"
+print_success "recall installation completed!"
 print_status "Available commands:"
-echo "  agito log <command>     - Log a command manually"
-echo "  agito history           - Show recent command history"
-echo "  agito history -l 50     - Show last 50 commands"
-echo "  agito clear             - Clear command history"
-echo "  agito install --shell <shell> - Install shell integration"
+echo "  recall log <command>     - Log a command manually"
+echo "  recall history           - Show recent command history"
+echo "  recall history -l 50     - Show last 50 commands"
+echo "  recall clear             - Clear command history"
+echo "  recall install --shell <shell> - Install shell integration"
 echo ""
 
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then

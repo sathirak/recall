@@ -5,17 +5,17 @@ use std::process::exit;
 
 pub fn install_shell_integration(shell: &str) -> Result<(), Box<dyn std::error::Error>> {
     let home = home_dir().ok_or("Could not find home directory")?;
-    let agito_path = env::current_exe()?;
+    let recall_path = env::current_exe()?;
     
     match shell {
         "bash" => {
             let bashrc_path = home.join(".bashrc");
             let integration_code = format!(
                 r#"
-# Agito command logger integration
+# recall command logger integration
 export PROMPT_COMMAND="$PROMPT_COMMAND; history -a; {} log \"$(history 1 | sed 's/^[ ]*[0-9]*[ ]*//')\" 2>/dev/null"
 "#,
-                agito_path.display()
+                recall_path.display()
             );
             
             std::fs::OpenOptions::new()
@@ -30,12 +30,12 @@ export PROMPT_COMMAND="$PROMPT_COMMAND; history -a; {} log \"$(history 1 | sed '
             let zshrc_path = home.join(".zshrc");
             let integration_code = format!(
                 r#"
-# Agito command logger integration
+# recall command logger integration
 preexec() {{
     {} log "$1" 2>/dev/null
 }}
 "#,
-                agito_path.display()
+                recall_path.display()
             );
             
             std::fs::OpenOptions::new()
@@ -52,12 +52,12 @@ preexec() {{
             let fish_config_path = fish_config_dir.join("config.fish");
             let integration_code = format!(
                 r#"
-# Agito command logger integration
-function agito_log_command --on-event fish_preexec
+# recall command logger integration
+function recall_log_command --on-event fish_preexec
     {} log "$argv" 2>/dev/null &
 end
 "#,
-                agito_path.display()
+                recall_path.display()
             );
             
             std::fs::OpenOptions::new()

@@ -1,10 +1,11 @@
 use clap::{Parser, Subcommand};
 use std::process::exit;
 
+mod db;
 mod commands;
 
 #[derive(Parser)]
-#[command(name = "agito")]
+#[command(name = "recall")]
 #[command(about = "Command history manager")]
 struct Cli {
     #[command(subcommand)]
@@ -40,8 +41,8 @@ async fn main() {
             }
         }
         None => {
-            println!("Agito - Terminal Command Logger");
-            println!("Use 'agito --help' for more information.");
+            println!("Recall - Terminal Command Logger");
+            println!("Use 'recall --help' for more information.");
         }
     }
 }
