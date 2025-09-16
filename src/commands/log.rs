@@ -1,4 +1,4 @@
-use crate::db::{CommandEntry, DatabaseManager};
+use crate::db::{CommandHistoryEntry, DatabaseManager};
 use chrono::Utc;
 use std::env;
 use std::os::unix::fs::MetadataExt;
@@ -143,7 +143,7 @@ pub async fn log_command(command: &str) -> Result<(), Box<dyn std::error::Error 
     
     if commands.is_empty() {
         // Fallback: if parsing yields no results, log the original command
-        let entry = CommandEntry {
+        let entry = CommandHistoryEntry {
             id: None,
             timestamp: Utc::now(),
             command: command.to_string(),
@@ -155,16 +155,11 @@ pub async fn log_command(command: &str) -> Result<(), Box<dyn std::error::Error 
             session_id: get_session_id(),
         };
 
-        let row_id = db_manager.log_command(&entry).await?;
-        
-        println!(
-            "Command logged: {} (Binary: unknown, Session: {}, ID: {})",
-            command, entry.session_id, row_id
-        );
+        db_manager.log_command(&entry).await?;
     } else {
         // Log each command separately
         for (cmd, binary) in commands {
-            let entry = CommandEntry {
+            let entry = CommandHistoryEntry {
                 id: None,
                 timestamp: Utc::now(),
                 command: cmd.clone(),
@@ -176,12 +171,7 @@ pub async fn log_command(command: &str) -> Result<(), Box<dyn std::error::Error 
                 session_id: get_session_id(),
             };
 
-            let row_id = db_manager.log_command(&entry).await?;
-
-            println!(
-                "Command logged: {} (Binary: {}, Session: {}, ID: {})",
-                cmd, binary, entry.session_id, row_id
-            );
+            db_manager.log_command(&entry).await?;
         }
     }
 

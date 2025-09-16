@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CommandEntry {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CommandHistoryEntry {
     pub id: Option<i64>,
     pub timestamp: DateTime<Utc>,
     pub command: String,
@@ -23,24 +23,22 @@ pub struct DatabaseManager {
 impl DatabaseManager {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let db_path = get_db_file_path();
-        
+
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        
-        let db = Builder::new_local(db_path)
-            .build()
-            .await?;
-        
+
+        let db = Builder::new_local(db_path).build().await?;
+
         let manager = DatabaseManager { db: Arc::new(db) };
         manager.init_schema().await?;
-        
+
         Ok(manager)
     }
-    
+
     async fn init_schema(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let conn = self.db.connect()?;
-        
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS command_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,19 +52,22 @@ impl DatabaseManager {
             (),
         )
         .await?;
-        
+
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_timestamp ON command_history(timestamp DESC)",
             (),
         )
         .await?;
-        
+
         Ok(())
     }
-    
-    pub async fn log_command(&self, entry: &CommandEntry) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
+
+    pub async fn log_command(
+        &self,
+        entry: &CommandHistoryEntry,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let conn = self.db.connect()?;
-        
+
         conn.execute(
             "INSERT INTO command_history (timestamp, command, binary, user, pwd, session_id) 
              VALUES (?, ?, ?, ?, ?, ?)",
@@ -80,20 +81,47 @@ impl DatabaseManager {
             ),
         )
         .await?;
-        
-        // Get the last inserted row ID
-        let mut rows = conn.query("SELECT last_insert_rowid()", ()).await?;
-        if let Some(row) = rows.next().await? {
-            Ok(row.get::<i64>(0)?)
-        } else {
-            Ok(0)
-        }
+
+        Ok(())
     }
-    
+
+    pub async fn fetch_recent_commands(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<CommandHistoryEntry>, Box<dyn std::error::Error + Send + Sync>> {
+        let conn = self.db.connect()?;
+
+        let mut rows = conn
+            .query(
+                "SELECT id, timestamp, command, binary, user, pwd, session_id 
+             FROM command_history 
+             ORDER BY timestamp DESC 
+             LIMIT ?",
+                &[limit],
+            )
+            .await?;
+
+        let mut commands = Vec::new();
+
+        while let Some(row) = rows.next().await? {
+            let entry = CommandHistoryEntry {
+                id: Some(row.get::<i64>(0)?),
+                timestamp: DateTime::parse_from_rfc3339(&row.get::<String>(1)?)?
+                    .with_timezone(&Utc),
+                command: row.get::<String>(2)?,
+                binary: row.get::<String>(3)?,
+                user: row.get::<String>(4)?,
+                pwd: row.get::<String>(5)?,
+                session_id: row.get::<String>(6)?,
+            };
+            commands.push(entry);
+        }
+
+        Ok(commands)
+    }
 }
 
 pub fn get_db_file_path() -> PathBuf {
-    // For tests, allow override via RECALL_DB_PATH
     if let Ok(test_path) = std::env::var("RECALL_DB_PATH") {
         return PathBuf::from(test_path);
     }

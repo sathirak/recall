@@ -1,8 +1,9 @@
 use clap::{Parser, Subcommand};
 use std::process::exit;
 
-mod db;
 mod commands;
+mod db;
+mod ui;
 
 #[derive(Parser)]
 #[command(name = "recall")]
@@ -16,6 +17,8 @@ struct Cli {
 enum Commands {
     Log {
         command: String,
+    },
+    History {
     },
     Install {
         #[arg(short, long, default_value = "bash")]
@@ -37,6 +40,12 @@ async fn main() {
         Some(Commands::Install { shell }) => {
             if let Err(e) = commands::install_shell_integration(shell) {
                 eprintln!("Error installing shell integration: {}", e);
+                exit(1);
+            }
+        }
+        Some(Commands::History { }) => {
+            if let Err(e) = commands::fetch_command_history().await {
+                eprintln!("Error fetching command history: {}", e);
                 exit(1);
             }
         }
