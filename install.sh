@@ -119,32 +119,6 @@ else
     echo "recall install --shell $CURRENT_SHELL"
 fi
 
-# Create systemd user service (optional)
-read -p "Would you like to create a systemd user service for background logging? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    SYSTEMD_DIR="$HOME/.config/systemd/user"
-    mkdir -p "$SYSTEMD_DIR"
-    
-    cat > "$SYSTEMD_DIR/recall.service" << EOF
-[Unit]
-Description=recall Command Logger
-After=graphical-session.target
-
-[Service]
-Type=simple
-ExecStart=$INSTALL_DIR/recall
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-EOF
-
-    systemctl --user daemon-reload
-    systemctl --user enable recall.service
-    print_success "Systemd user service created and enabled"
-fi
 
 print_success "recall installation completed!"
 print_status "Available commands:"
