@@ -18,8 +18,6 @@ enum Commands {
     Log {
         command: String,
     },
-    History {
-    },
     Install {
         #[arg(short, long, default_value = "bash")]
         shell: String,
@@ -43,15 +41,11 @@ async fn main() {
                 exit(1);
             }
         }
-        Some(Commands::History { }) => {
-            if let Err(e) = commands::fetch_command_history().await {
+        None => {
+            if let Err(e) = commands::get_command_history().await {
                 eprintln!("Error fetching command history: {}", e);
                 exit(1);
             }
-        }
-        None => {
-            println!("Recall - Terminal Command Logger");
-            println!("Use 'recall --help' for more information.");
         }
     }
 }

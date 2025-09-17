@@ -13,7 +13,7 @@ pub struct CommandHistoryEntry {
     pub binary: String,
     pub user: String,
     pub pwd: String,
-    pub session_id: String,
+    pub session_id: i64,
 }
 
 pub struct DatabaseManager {
@@ -40,6 +40,17 @@ impl DatabaseManager {
         let conn = self.db.connect()?;
 
         conn.execute(
+            "CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL UNIQUE,
+                started_at TEXT NOT NULL,
+                stopped_at TEXT
+            )",
+            (),
+        )
+        .await?;
+
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS command_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp TEXT NOT NULL,
@@ -47,7 +58,8 @@ impl DatabaseManager {
                 binary TEXT NOT NULL,
                 user TEXT NOT NULL,
                 pwd TEXT NOT NULL,
-                session_id TEXT NOT NULL
+                session_id INTEGER NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
             )",
             (),
         )
@@ -58,6 +70,46 @@ impl DatabaseManager {
             (),
         )
         .await?;
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_session_key ON sessions(key)",
+            (),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_or_create_session(&self, session_key: &str) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
+        let conn = self.db.connect()?;
+
+        let mut rows = conn.query("SELECT id FROM sessions WHERE key = ?", &[session_key]).await?;
+
+        if let Some(row) = rows.next().await? {
+            return Ok(row.get::<i64>(0)?);
+        }
+
+        conn.execute(
+            "INSERT INTO sessions (key, started_at) VALUES (?, ?)",
+            (session_key, Utc::now().to_rfc3339().as_str()),
+        ).await?;
+
+        let mut rows = conn.query("SELECT id FROM sessions WHERE key = ?", &[session_key]).await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(row.get::<i64>(0)?)
+        } else {
+            Err("Failed to create session".into())
+        }
+    }
+
+    pub async fn update_session_stopped_at(&self, session_id: i64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let conn = self.db.connect()?;
+        
+        conn.execute(
+            "UPDATE sessions SET stopped_at = ? WHERE id = ?",
+            (Utc::now().to_rfc3339().as_str(), session_id),
+        ).await?;
 
         Ok(())
     }
@@ -77,10 +129,12 @@ impl DatabaseManager {
                 entry.binary.as_str(),
                 entry.user.as_str(),
                 entry.pwd.as_str(),
-                entry.session_id.as_str(),
+                entry.session_id,
             ),
         )
         .await?;
+        
+        self.update_session_stopped_at(entry.session_id).await?;
 
         Ok(())
     }
@@ -94,15 +148,14 @@ impl DatabaseManager {
         let mut rows = conn
             .query(
                 "SELECT id, timestamp, command, binary, user, pwd, session_id 
-             FROM command_history 
-             ORDER BY timestamp DESC 
-             LIMIT ?",
+                 FROM command_history 
+                 ORDER BY timestamp DESC 
+                 LIMIT ?",
                 &[limit],
             )
             .await?;
 
         let mut commands = Vec::new();
-
         while let Some(row) = rows.next().await? {
             let entry = CommandHistoryEntry {
                 id: Some(row.get::<i64>(0)?),
@@ -112,7 +165,7 @@ impl DatabaseManager {
                 binary: row.get::<String>(3)?,
                 user: row.get::<String>(4)?,
                 pwd: row.get::<String>(5)?,
-                session_id: row.get::<String>(6)?,
+                session_id: row.get::<i64>(6)?,
             };
             commands.push(entry);
         }
