@@ -1,55 +1,81 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  release:
+    types: [created]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            archive_name: recall-linux-x86_64.tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
+            archive_name: recall-macos-x86_64.tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive_name: recall-macos-aarch64.tar.gz
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Upload binary artifact
+      - name: Create archive
+        shell: bash
+        run: |
+          binary_name="recall"
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            binary_name="recall.exe"
+          fi
+          
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../${{ matrix.archive_name }} $binary_name
+          cd ../../..
+          
+          # Generate checksum
+          shasum -a 256 ${{ matrix.archive_name }} > ${{ matrix.archive_name }}.sha256
+
+      - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: recall-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/recall
+          name: ${{ matrix.archive_name }}
+          path: |
+            ${{ matrix.archive_name }}
+            ${{ matrix.archive_name }}.sha256
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
 
-      - name: Create GitHub Release
+      - name: Flatten artifacts
+        run: |
+          find dist -name "*.tar.gz" -o -name "*.sha256" | while read file; do
+            mv "$file" .
+          done
+
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/recall-x86_64-unknown-linux-gnu/recall
-            dist/recall-x86_64-apple-darwin/recall
+            *.tar.gz
+            *.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
