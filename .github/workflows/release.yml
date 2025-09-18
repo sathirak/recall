@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [created]
+    types: [published, unpublished, created, edited, deleted, prereleased, released]
   workflow_dispatch:
 
 jobs:
@@ -50,7 +50,7 @@ jobs:
       - name: Upload archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.archive_name }}
+          name: recall-${{ matrix.target }}
           path: |
             ${{ matrix.archive_name }}
             ${{ matrix.archive_name }}.sha256
