@@ -19,4 +19,21 @@ Recall is a modern, extensible alternative to the classic `history` command. It 
 
 ## Getting Started
 
-Still working on this...
+### Installation
+
+Currently, recall can only be build from source. Make sure you have Rust and Cargo installed.
+
+```shell
+git clone https://github.com/sathirak/recall.git
+cd recall
+
+# Install recall for bash
+bash ./scripts/install-bash.sh
+
+# Install recall for zsh
+bash ./scripts/install-zsh.sh
+
+# Install recall for fish
+bash ./scripts/install-fish.sh
+
+```

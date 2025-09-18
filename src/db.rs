@@ -31,7 +31,18 @@ impl DatabaseManager {
         let db = Builder::new_local(db_path).build().await?;
 
         let manager = DatabaseManager { db: Arc::new(db) };
-        manager.init_schema().await?;
+        
+        // Retry initialization in case of lock
+        for attempt in 0..3 {
+            match manager.init_schema().await {
+                Ok(()) => break,
+                Err(e) if attempt < 2 && e.to_string().contains("database is locked") => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
 
         Ok(manager)
     }
@@ -118,6 +129,24 @@ impl DatabaseManager {
         &self,
         entry: &CommandHistoryEntry,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Retry on database lock
+        for attempt in 0..3 {
+            match self.try_log_command(entry).await {
+                Ok(()) => return Ok(()),
+                Err(e) if attempt < 2 && e.to_string().contains("database is locked") => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+
+    async fn try_log_command(
+        &self,
+        entry: &CommandHistoryEntry,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let conn = self.db.connect()?;
 
         conn.execute(
@@ -140,6 +169,24 @@ impl DatabaseManager {
     }
 
     pub async fn fetch_recent_commands(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<CommandHistoryEntry>, Box<dyn std::error::Error + Send + Sync>> {
+        // Retry on database lock
+        for attempt in 0..3 {
+            match self.try_fetch_recent_commands(limit).await {
+                Ok(commands) => return Ok(commands),
+                Err(e) if attempt < 2 && e.to_string().contains("database is locked") => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(Vec::new())
+    }
+
+    async fn try_fetch_recent_commands(
         &self,
         limit: i64,
     ) -> Result<Vec<CommandHistoryEntry>, Box<dyn std::error::Error + Send + Sync>> {
