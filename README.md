@@ -1,4 +1,8 @@
-# 📦 Recall 
+# 📦 Recall
+
+## Why
+
+I usually need to search up older commands in the correct order they were executed. Using the classic `history` command this is tedious and we cant group by session or search through the commands easily. In certain automation tasks it really helps to have `recall` inbuilt.
 
 Recall is a modern, extensible alternative to the classic `history` command. It provides advanced command history management, session tracking, and a terminal user interface for searching and exploring your shell command history.
 
